@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Video Downloader</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        .background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('/static/img/bg.jpg');
+            background-size: cover;
+            background-position: center;
+            filter: blur(0px);
+            z-index: -1;
+        }
+        .container {
+            max-width: 600px;
+            margin: 100px auto;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .hidden {
+            display: none;
+        }
+        .spinner {
+            display: none;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: #000;
+            animation: spin 1s ease-in-out infinite;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        @keyframes spin {
+            to {
+                transform: translate(-50%, -50%) rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="background"></div>
+    <div class="container">
+        <h1>Paste youtube video link</h1>
+        <input type="text" id="url" placeholder="Enter YouTube video URL">
+        <button onclick="fetchVideoInfo()">Available Qualities</button>
+        <div id="video-info" class="hidden">
+            <h2 id="video-title"></h2>
+            <select id="quality"></select>
+            <button onclick="downloadVideo()">Download</button>
+        </div>
+        <div id="message"></div>
+        <div class="spinner" id="spinner"></div>
+    </div>
+    <script>
+        function showSpinner() {
+            document.getElementById('spinner').style.display = 'block';
+        }
+
+        function hideSpinner() {
+            document.getElementById('spinner').style.display = 'none';
+        }
+
+        async function fetchVideoInfo() {
+            const url = document.getElementById('url').value;
+            showSpinner();
+            const response = await fetch('/get_video_info', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url })
+            });
+            const data = await response.json();
+            hideSpinner();
+            if (response.ok) {
+                document.getElementById('video-title').innerText = data.title;
+                const qualitySelect = document.getElementById('quality');
+                qualitySelect.innerHTML = '';
+                data.streams.forEach(stream => {
+                    const option = document.createElement('option');
+                    option.value = stream.itag;
+                    option.text = `${stream.resolution} (${stream.mime_type})`;
+                    qualitySelect.add(option);
+                });
+                document.getElementById('video-info').classList.remove('hidden');
+            } else {
+                document.getElementById('message').innerText = data.error;
+            }
+        }
+
+        async function downloadVideo() {
+            const url = document.getElementById('url').value;
+            const itag = document.getElementById('quality').value;
+            showSpinner();
+            const response = await fetch('/download_video', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url, itag })
+            });
+            const data = await response.json();
+            hideSpinner();
+            if (response.ok) {
+                document.getElementById('message').innerText = data.message + ' Saved to ' + data.path;
+            } else {
+                document.getElementById('message').innerText = data.error;
+            }
+        }
+    </script>
+</body>
+</html>
